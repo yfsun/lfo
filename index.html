@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>EaselJS: Simple SpriteSheet Example</title>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+	<script type="text/javascript" src="lib/easeljs-0.6.1.min.js"></script>
+	<script type="text/javascript" src="js/arena.js"></script>
+	<script type="text/javascript" src="js/hud.js"></script>
+	<script type="text/javascript" src="js/constants.js"></script>
+	<script type="text/javascript" src="js/character.js"></script>
+	<script type="text/javascript" src="js/game.js"></script>
+
+	<!-- We also provide hosted minified versions of all CreateJS libraries.
+	  http://code.createjs.com -->
+
+	<script type="text/javascript">
+        var stage;
+		function init() {
+			var game = new Game();
+			game.init();
+		}
+
+	</script>
+</head>
+<body onload="init();">
+	<div class="canvasHolder">
+		<canvas id="gameCanvas" width="960" height="400">
+			<h1>Sorry your browser does not support html5 canvas</h1>
+		</canvas>
+	</div>
+</body>
+</html>
