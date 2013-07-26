@@ -98,6 +98,7 @@ class window.Character
 		if (@state == 'idle')
 			@setState 'hurt'
 			@character.gotoAndPlay "hurt"
+			@character.x -=@speed
 
 	setState: (state) ->
 		@state = state

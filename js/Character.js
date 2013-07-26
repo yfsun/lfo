@@ -127,7 +127,8 @@
     Character.prototype.gotHit = function() {
       if (this.state === 'idle') {
         this.setState('hurt');
-        return this.character.gotoAndPlay("hurt");
+        this.character.gotoAndPlay("hurt");
+        return this.character.x -= this.speed;
       }
     };
 
