@@ -18,17 +18,11 @@
       shape.x = 0;
       shape.y = 0;
       this.stage.addChild(shape);
-      this.socket = io.connect("http://localhost", {
+      this.socket = io.connect("http://192.168.2.1", {
         port: 8000,
         transports: ["websocket"]
       });
       console.log(this.socket);
-      this.c = new Character("firzen", "assets/spritesheets/firzen.png", 5, 250, 100);
-      this.enemy = new Character('firzen', "assets/spritesheets/firzen.png", 5, 400, 100);
-      this.c.addToStage(this.stage);
-      this.enemy.addToStage(this.stage);
-      this.players.push(this.c);
-      this.players.push(this.enemy);
       this.hud = new Hud(this.players, this.stage.canvas.width, 100, this.stage);
       this.arena = new Arena(this.stage.canvas.width, this.stage.canvas.height - 100, this.players);
       this.arena.setPosition(0, 100);
@@ -37,8 +31,6 @@
       createjs.Ticker.addEventListener("tick", this.stage);
       this.ready = false;
       this.lastKeyPress = new Date();
-      console.log(stage);
-      this.attackQueue = [];
       createjs.Ticker.addEventListener("tick", (function(evt) {
         if (this.keysDown[Constant.KEYCODE_RIGHT]) {
           this.c.run('right');
@@ -60,6 +52,7 @@
           }
         }
       }).bind(this));
+      this.addEventHandlers();
       window.addEventListener("keydown", (function(e) {
         return this.keysDown[e.keyCode] = true;
       }).bind(this));
@@ -72,6 +65,29 @@
           return this.c.setState('idle');
         }
       }).bind(this));
+    };
+
+    Game.prototype.addEventHandlers = function() {
+      this.socket.on("connect", this.onConnected.bind(this));
+      return this.socket.on("new player", this.onNewPlayer.bind(this));
+    };
+
+    Game.prototype.onConnected = function() {
+      console.log('connected');
+      var newX  = Math.floor((Math.random()*10)+1) * 10;
+      var newY =  Math.floor((Math.random()*10)+1) * 10;
+      return this.socket.emit("new player", {
+        x: newX,
+        y: newY
+      });
+    };
+
+    Game.prototype.onNewPlayer = function(data) {
+      var newPlayer;
+      console.log("new player connected");
+      newPlayer = new Character("firzen", "assets/spritesheets/firzen.png", 5, data.y.x, data.y.y);
+      this.arena.addPlayer(newPlayer);
+      return console.log("Player" + data.id + " Location:" + data.y.x + "," + data.y.y);
     };
 
     Game.prototype.collide = function(rect1, rect2) {

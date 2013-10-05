@@ -14,20 +14,10 @@ class window.Game
         shape.y = 0
         @stage.addChild shape
 
-        @socket = io.connect "http://localhost", {port: 8000, transports: ["websocket"]}
+        @socket = io.connect "http://192.168.2.1", {port: 8000, transports: ["websocket"]}
 
         console.log @socket
 
-        @c = new Character "firzen", "assets/spritesheets/firzen.png", 5, 250, 100
-        @enemy = new Character 'firzen', "assets/spritesheets/firzen.png", 5, 400, 100
-
-
-        @c.addToStage @stage
-        @enemy.addToStage @stage
-
-
-        @players.push @c
-        @players.push @enemy
 
 
         @hud = new Hud @players, @stage.canvas.width, 100, @stage
@@ -44,9 +34,7 @@ class window.Game
 
 
         @lastKeyPress = new Date()
-        console.log stage
 
-        @attackQueue = []
 
         createjs.Ticker.addEventListener "tick", ((evt) ->
             if (@keysDown[Constant.KEYCODE_RIGHT])
@@ -65,6 +53,7 @@ class window.Game
 
         ).bind this
 
+        @addEventHandlers()
 
         window.addEventListener "keydown", ((e) ->
             @keysDown[e.keyCode] = true
@@ -78,6 +67,21 @@ class window.Game
                 @c.setState 'idle'
         ).bind this
 
+    addEventHandlers: () ->
+        @socket.on "connect", @onConnected.bind this
+        @socket.on "new player", @onNewPlayer.bind this
+
+    onConnected: () ->
+        console.log 'connected'
+        # Send local player to server
+        @socket.emit "new player", {x:250, y:250}
+
+    onNewPlayer: (data) ->
+        console.log "new player connected"
+
+        newPlayer = new Character "firzen", "assets/spritesheets/firzen.png", 5, data.y.x, data.y.y
+        @arena.addPlayer newPlayer
+        console.log "Player" + data.id + " Location:" + data.y.x + "," + data.y.y
     collide: (rect1, rect2) ->
         console.log 'rect1 ' + rect1.y2
         console.log 'rect2 ' + rect2.y2
@@ -85,5 +89,4 @@ class window.Game
         console.log  (rect1.y2 - @Y_AXIS_THREASHOLD)
         console.log (rect1.y2 + @Y_AXIS_THREASHOLD)
         return (!(rect2.x2 < rect1.x1) && !(rect2.x1 > rect1.x2) && (rect2.y2 > (rect1.y2 - @Y_AXIS_THREASHOLD)) && (rect2.y2 < (rect1.y2 + @Y_AXIS_THREASHOLD)))
-
 

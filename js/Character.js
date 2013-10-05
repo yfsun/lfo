@@ -10,6 +10,7 @@
       this.x = x;
       this.y = y;
       this.stage = stage;
+      this.id;
       this.hp = 100;
       this.spriteSheetInfo;
       this.character;
