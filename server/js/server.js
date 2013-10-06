@@ -7,7 +7,8 @@
     function Server() {
       this.util = require("util");
       this.io = require("socket.io");
-      this.Character = require("./Character").Character;
+      this.Character = require("./character.js").Character;
+      this.players = [];
       this.init();
     }
 
@@ -25,18 +26,48 @@
     };
 
     Server.prototype.onSocketConnection = function(client) {
-      this.util.log("New Player has connected:" + client.id);
-      return client.on("new player", this.onNewPlayer.bind(this));
+      var player, _i, _len, _ref, _results;
+      this.util.log(client.id);
+      client.emit("client id", {
+        id: client.id
+      });
+      client.on("new player", this.onNewPlayer.bind(this));
+      client.on("update", this.onSocketUpdate.bind(this));
+      _ref = this.players;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        player = _ref[_i];
+        client.emit("new player", {
+          id: player.id,
+          x: player.x,
+          y: player.y
+        });
+        _results.push(this.util.log('emitting existing player:' + player.id));
+      }
+      return _results;
     };
 
     Server.prototype.onNewPlayer = function(data) {
-      var newPlayer;
-      this.util.log('New Player Location:' + data.x + "," + data.y);
-      newPlayer = new this.Character(data.id, data.x, data.y);
+      this.util.log('New Player:' + data.id + '--- Location:' + data.x + ',' + data.y);
+      this.players.push({
+        id: data.id,
+        x: data.x,
+        y: data.y
+      });
       return this.socket.sockets.emit("new player", {
         id: data.id,
         x: data.x,
         y: data.y
+      });
+    };
+
+    Server.prototype.onSocketUpdate = function(data) {
+      this.util.log("update: id:" + data.id + " x:" + data.x + " y:" + data.y);
+      return this.socket.sockets.emit("update", {
+        id: data.id,
+        x: data.x,
+        y: data.y,
+        dir: data.dir
       });
     };
 

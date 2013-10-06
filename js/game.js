@@ -8,86 +8,169 @@
     }
 
     Game.prototype.init = function() {
-      var background, shape;
-      this.rect = new createjs.Rectangle(0, 0, 100, 100);
       this.keysDown = {};
       this.players = [];
+      this.stageInit();
+      this.serverInit();
+      createjs.Ticker.setFPS(60);
+      createjs.Ticker.addEventListener("tick", this.stage);
+      this.ready = false;
+      this.lastKeyPress = new Date();
+      return this.addEventHandlers();
+    };
+
+    Game.prototype.serverInit = function() {
+      this.socket = io.connect("http://192.168.1.129", {
+        port: 8000,
+        transports: ["websocket"]
+      });
+      return console.log(this.socket);
+    };
+
+    Game.prototype.stageInit = function() {
+      var background, shape;
+      this.rect = new createjs.Rectangle(0, 0, 100, 100);
       this.stage = new createjs.Stage(document.getElementById("gameCanvas"));
       background = new createjs.Graphics().beginFill("#000000").drawRect(0, 0, this.stage.canvas.width, this.stage.canvas.height);
       shape = new createjs.Shape(background);
       shape.x = 0;
       shape.y = 0;
       this.stage.addChild(shape);
-      this.socket = io.connect("http://192.168.2.1", {
-        port: 8000,
-        transports: ["websocket"]
-      });
-      console.log(this.socket);
       this.hud = new Hud(this.players, this.stage.canvas.width, 100, this.stage);
       this.arena = new Arena(this.stage.canvas.width, this.stage.canvas.height - 100, this.players);
       this.arena.setPosition(0, 100);
-      this.arena.addToStage(this.stage);
-      createjs.Ticker.setFPS(60);
-      createjs.Ticker.addEventListener("tick", this.stage);
-      this.ready = false;
-      this.lastKeyPress = new Date();
-      createjs.Ticker.addEventListener("tick", (function(evt) {
-        if (this.keysDown[Constant.KEYCODE_RIGHT]) {
-          this.c.run('right');
-        }
-        if (this.keysDown[Constant.KEYCODE_LEFT]) {
-          this.c.run('left');
-        }
-        if (this.keysDown[Constant.KEYCODE_DOWN]) {
-          this.c.run('down');
-        }
-        if (this.keysDown[Constant.KEYCODE_UP]) {
-          this.c.run('up');
-        }
-        if (this.keysDown[Constant.KEYCODE_Z]) {
-          this.c.attack();
-          if (this.collide(this.enemy.getRect(), this.c.getRect())) {
-            this.enemy.gotHit();
-            return this.enemy.setState("hurt");
-          }
-        }
-      }).bind(this));
-      this.addEventHandlers();
-      window.addEventListener("keydown", (function(e) {
-        return this.keysDown[e.keyCode] = true;
-      }).bind(this));
-      return window.addEventListener("keyup", (function(e) {
-        this.keysDown[e.keyCode] = false;
-        if (!this.keysDown[Constant.KEYCODE_RIGHT] && !this.keysDown[Constant.KEYCODE_LEFT] && !this.keysDown[Constant.KEYCODE_UP] && !this.keysDown[Constant.KEYCODE_DOWN]) {
-          if (this.c.character.currentAnimation === "run") {
-            this.c.idle();
-          }
-          return this.c.setState('idle');
-        }
-      }).bind(this));
+      return this.arena.addToStage(this.stage);
     };
 
     Game.prototype.addEventHandlers = function() {
       this.socket.on("connect", this.onConnected.bind(this));
-      return this.socket.on("new player", this.onNewPlayer.bind(this));
+      this.socket.on("new player", this.onNewPlayer.bind(this));
+      this.socket.on("client id", this.onReceivedClientID.bind(this));
+      return this.socket.on("update", this.onUpdate.bind(this));
     };
 
-    Game.prototype.onConnected = function() {
-      console.log('connected');
-      var newX  = Math.floor((Math.random()*10)+1) * 10;
-      var newY =  Math.floor((Math.random()*10)+1) * 10;
-      return this.socket.emit("new player", {
-        x: newX,
-        y: newY
+    Game.prototype.onUpdate = function(data) {
+      var updatePlayer;
+      if (data.id !== this.clientID) {
+        console.log('update');
+        updatePlayer = this.playerGet(data.id);
+        updatePlayer.x = data.x;
+        updatePlayer.y = data.y;
+        return updatePlayer.run(data.dir);
+      }
+    };
+
+    Game.prototype.onConnected = function() {};
+
+    Game.prototype.onReceivedClientID = function(data) {
+      this.socket.emit("new player", {
+        id: data.id,
+        x: 250,
+        y: 250
       });
+      return this.clientID = data.id;
     };
 
     Game.prototype.onNewPlayer = function(data) {
-      var newPlayer;
-      console.log("new player connected");
-      newPlayer = new Character("firzen", "assets/spritesheets/firzen.png", 5, data.y.x, data.y.y);
-      this.arena.addPlayer(newPlayer);
-      return console.log("Player" + data.id + " Location:" + data.y.x + "," + data.y.y);
+      var c;
+      if (!(this.playerExists(data.id))) {
+        console.log('Add new player to stage ' + data.id);
+        c = new Character("firzen", "assets/spritesheets/firzen.png", 5, data.x, data.y);
+        c.id = data.id;
+        this.arena.addPlayer(c);
+        this.players.push(c);
+      }
+      console.log('player list');
+      console.log(this.players);
+      console.log('New Player');
+      console.log(data);
+      if (data.id === this.clientID) {
+        console.log('My Character');
+        createjs.Ticker.addEventListener("tick", (function(evt) {
+          if (this.keysDown[Constant.KEYCODE_RIGHT]) {
+            c.run('right');
+            this.socket.emit("update", {
+              id: this.clientID,
+              x: c.x,
+              y: c.y,
+              dir: "right"
+            });
+            console.log("new Coord" + this.playerGet(this.clientID).x + "," + c.y);
+          }
+          if (this.keysDown[Constant.KEYCODE_LEFT]) {
+            c.run('left');
+            this.socket.emit("update", {
+              id: this.clientID,
+              x: c.x,
+              y: c.y,
+              dir: "left"
+            });
+          }
+          if (this.keysDown[Constant.KEYCODE_DOWN]) {
+            this.socket.emit("update", {
+              id: this.clientID,
+              x: c.x,
+              y: c.y,
+              dir: "down"
+            });
+            c.run('down');
+          }
+          if (this.keysDown[Constant.KEYCODE_UP]) {
+            this.socket.emit("update", {
+              id: this.clientID,
+              x: c.x,
+              y: c.y,
+              dir: "up"
+            });
+            c.run('up');
+            console.log("new Coord" + this.playerGet(this.clientID).x + "," + c.y);
+          }
+          if (this.keysDown[Constant.KEYCODE_Z]) {
+            c.attack();
+            if (collide(this.enemy.getRect(), c.getRect())) {
+              this.enemy.gotHit();
+              return this.enemy.setState("hurt");
+            }
+          }
+        }).bind(this));
+        window.addEventListener("keydown", (function(e) {
+          return this.keysDown[e.keyCode] = true;
+        }).bind(this));
+        return window.addEventListener("keyup", (function(e) {
+          this.keysDown[e.keyCode] = false;
+          if (!this.keysDown[Constant.KEYCODE_RIGHT] && !this.keysDown[Constant.KEYCODE_LEFT] && !this.keysDown[Constant.KEYCODE_UP] && !this.keysDown[Constant.KEYCODE_DOWN]) {
+            if (c.character.currentAnimation === "run") {
+              c.idle();
+            }
+            return c.setState('idle');
+          }
+        }).bind(this));
+      } else {
+
+      }
+    };
+
+    Game.prototype.playerExists = function(id) {
+      var p, _i, _len, _ref;
+      _ref = this.players;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        p = _ref[_i];
+        if (p.id === id) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    Game.prototype.playerGet = function(id) {
+      var p, _i, _len, _ref;
+      _ref = this.players;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        p = _ref[_i];
+        if (p.id === id) {
+          return p;
+        }
+      }
     };
 
     Game.prototype.collide = function(rect1, rect2) {
