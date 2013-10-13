@@ -22,7 +22,7 @@ class window.Game
 
     # Server setup
     serverInit: () ->
-        @socket = io.connect "http://192.168.1.129", {port: 8000, transports: ["websocket"]}
+        @socket = io.connect "http://10.0.0.9", {port: 8000, transports: ["websocket"]}
         console.log @socket
 
 
@@ -31,13 +31,6 @@ class window.Game
         @rect = new createjs.Rectangle 0, 0, 100, 100
         # Setup Stage
         @stage = new createjs.Stage document.getElementById("gameCanvas")
-        background = new createjs.Graphics().beginFill("#000000").drawRect 0, 0, @stage.canvas.width, @stage.canvas.height
-        shape = new createjs.Shape background
-        shape.x = 0
-        shape.y = 0
-        @stage.addChild shape
-        @hud = new Hud @players, @stage.canvas.width, 100, @stage
-
         @arena = new Arena @stage.canvas.width, (@stage.canvas.height - 100), @players
         @arena.setPosition 0, 100
         @arena.addToStage @stage
@@ -48,12 +41,16 @@ class window.Game
         @socket.on "connect", @onConnected.bind this
         @socket.on "new player", @onNewPlayer.bind this
         @socket.on "client id", @onReceivedClientID.bind this
-
         @socket.on "update", @onUpdate.bind this
+        @socket.on "disconnect", @onDisconnect.bind this
+
+        window.addEventListener "keydown",@onKeyDown.bind this
+        window.addEventListener "keyup",@onKeyUp.bind this
+
+        createjs.Ticker.addEventListener "tick", @onTick.bind this
 
 
     # Handlers for events
-
     onUpdate: (data) ->
         if (data.id != @clientID)
                 console.log 'update'
@@ -62,7 +59,12 @@ class window.Game
                 updatePlayer.x = data.x
                 updatePlayer.y = data.y
                 updatePlayer.run data.dir
-    # Connected to Server
+        if (data.state)
+            if (data.state == "idle")
+                updatePlayer.idle()
+                console.log 'IDLEEEEEEEE'
+
+# Connected to Server
     onConnected: () ->
 
     # Received client ID from the server
@@ -81,37 +83,10 @@ class window.Game
             @arena.addPlayer c
             @players.push c
 
-        console.log 'player list'
-        console.log @players
-        console.log 'New Player'
-        console.log data
         if (data.id == @clientID)
             console.log 'My Character'
+            @localPlayer = c
             createjs.Ticker.addEventListener "tick", ((evt) ->
-                if (@keysDown[Constant.KEYCODE_RIGHT])
-                    c.run 'right'
-                    @socket.emit "update", {id:@clientID, x:c.x, y:c.y, dir:"right"}
-                    console.log "new Coord" + @playerGet(@clientID).x + "," + c.y
-                if (@keysDown[Constant.KEYCODE_LEFT])
-                    c.run 'left'
-                    @socket.emit "update", {id:@clientID, x:c.x, y:c.y, dir:"left"}
-
-                if (@keysDown[Constant.KEYCODE_DOWN])
-                    @socket.emit "update", {id:@clientID, x:c.x, y:c.y, dir:"down"}
-                    c.run 'down'
-
-                if (@keysDown[Constant.KEYCODE_UP])
-
-                    @socket.emit "update", {id:@clientID, x:c.x, y:c.y, dir:"up"}
-                    c.run 'up'
-                    console.log "new Coord" + @playerGet(@clientID).x + "," + c.y
-
-                if (@keysDown[Constant.KEYCODE_Z])
-                    c.attack()
-                    if (collide @enemy.getRect(), c.getRect())
-                        @enemy.gotHit()
-                        @enemy.setState "hurt"
-
             ).bind this
 
 
@@ -125,17 +100,60 @@ class window.Game
                     if (c.character.currentAnimation == "run")
                         c.idle()
                     c.setState 'idle'
+                    @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, state:"idle"}
             ).bind this
 
         else
 
-    # Check if player already exists
+    onDisconnect: (data) ->
+        console.log 'Player: ' + data.id + ' has disconnected';
+
+    # This event is trigged every frame
+    onTick: (e) ->
+
+        # Check which key is been pressed
+        if (@keysDown[Constant.KEYCODE_RIGHT])
+            @localPlayer.run 'right'
+            @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"right"}
+            console.log "new Coord" + @playerGet(@clientID).x + "," + @localPlayer.y
+        if (@keysDown[Constant.KEYCODE_LEFT])
+            @localPlayer.run 'left'
+            @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"left"}
+
+        if (@keysDown[Constant.KEYCODE_DOWN])
+            @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"down"}
+            @localPlayer.run 'down'
+
+        if (@keysDown[Constant.KEYCODE_UP])
+
+            @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"up"}
+            @localPlayer.run 'up'
+            console.log "new Coord" + @playerGet(@clientID).x + "," + @localPlayer.y
+
+        if (@keysDown[Constant.KEYCODE_Z])
+            @localPlayer.attack()
+            if (collide @enemy.getRect(), @localPlayer.getRect())
+                @enemy.gotHit()
+                @enemy.setState "hurt"
+
+
+    onKeyDown: (e) ->
+        console.log "key down " + e.keyCode
+        @keysDown[e.keyCode] = true
+
+    onKeyUp: (e) ->
+        console.log "key up " + e.keyCode
+        @keysDown[e.keyCode] = false
+
+
+    # Member Functions #############################################################################
+
+
     playerExists: (id) ->
         for p in @players
             if (p.id == id)
                 return true
         return false
-
 
     playerGet: (id) ->
         for p in @players

@@ -57,6 +57,7 @@ class window.Character
         stage.addChild(@character)
         @stage = stage
 
+
     run: (direction) ->
         if (@character.currentAnimation != "run")
             @character.gotoAndPlay "run"

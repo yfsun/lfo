@@ -21,6 +21,21 @@
       return this.setEventHandlers();
     };
 
+    Server.prototype.removePlayer = function(id) {
+      var key, p, _i, _len, _ref, _results;
+      _ref = this.players;
+      _results = [];
+      for (p = _i = 0, _len = _ref.length; _i < _len; p = ++_i) {
+        key = _ref[p];
+        if (p.id === id) {
+          _results.push(this.players.splice(key, 1));
+        } else {
+          _results.push(void 0);
+        }
+      }
+      return _results;
+    };
+
     Server.prototype.setEventHandlers = function() {
       return this.socket.sockets.on("connection", this.onSocketConnection.bind(this));
     };
@@ -32,6 +47,7 @@
         id: client.id
       });
       client.on("new player", this.onNewPlayer.bind(this));
+      client.on("disconnect", this.onSocketDisconnect.bind(this));
       client.on("update", this.onSocketUpdate.bind(this));
       _ref = this.players;
       _results = [];
@@ -45,6 +61,12 @@
         _results.push(this.util.log('emitting existing player:' + player.id));
       }
       return _results;
+    };
+
+    Server.prototype.onSocketDisconnect = function(client) {
+      this.util.log('client ' + this.id + ' has disconnected');
+      this.removePlayer(client.id);
+      return this.socket.sockets.emit("disconnect", {});
     };
 
     Server.prototype.onNewPlayer = function(data) {
@@ -67,7 +89,8 @@
         id: data.id,
         x: data.x,
         y: data.y,
-        dir: data.dir
+        dir: data.dir,
+        state: data.state
       });
     };
 

@@ -20,7 +20,7 @@
     };
 
     Game.prototype.serverInit = function() {
-      this.socket = io.connect("http://192.168.1.129", {
+      this.socket = io.connect("http://10.0.0.9", {
         port: 8000,
         transports: ["websocket"]
       });
@@ -28,15 +28,8 @@
     };
 
     Game.prototype.stageInit = function() {
-      var background, shape;
       this.rect = new createjs.Rectangle(0, 0, 100, 100);
       this.stage = new createjs.Stage(document.getElementById("gameCanvas"));
-      background = new createjs.Graphics().beginFill("#000000").drawRect(0, 0, this.stage.canvas.width, this.stage.canvas.height);
-      shape = new createjs.Shape(background);
-      shape.x = 0;
-      shape.y = 0;
-      this.stage.addChild(shape);
-      this.hud = new Hud(this.players, this.stage.canvas.width, 100, this.stage);
       this.arena = new Arena(this.stage.canvas.width, this.stage.canvas.height - 100, this.players);
       this.arena.setPosition(0, 100);
       return this.arena.addToStage(this.stage);
@@ -46,7 +39,11 @@
       this.socket.on("connect", this.onConnected.bind(this));
       this.socket.on("new player", this.onNewPlayer.bind(this));
       this.socket.on("client id", this.onReceivedClientID.bind(this));
-      return this.socket.on("update", this.onUpdate.bind(this));
+      this.socket.on("update", this.onUpdate.bind(this));
+      this.socket.on("disconnect", this.onDisconnect.bind(this));
+      window.addEventListener("keydown", this.onKeyDown.bind(this));
+      window.addEventListener("keyup", this.onKeyUp.bind(this));
+      return createjs.Ticker.addEventListener("tick", this.onTick.bind(this));
     };
 
     Game.prototype.onUpdate = function(data) {
@@ -56,7 +53,13 @@
         updatePlayer = this.playerGet(data.id);
         updatePlayer.x = data.x;
         updatePlayer.y = data.y;
-        return updatePlayer.run(data.dir);
+        updatePlayer.run(data.dir);
+      }
+      if (data.state) {
+        if (data.state === "idle") {
+          updatePlayer.idle();
+          return console.log('IDLEEEEEEEE');
+        }
       }
     };
 
@@ -80,59 +83,10 @@
         this.arena.addPlayer(c);
         this.players.push(c);
       }
-      console.log('player list');
-      console.log(this.players);
-      console.log('New Player');
-      console.log(data);
       if (data.id === this.clientID) {
         console.log('My Character');
-        createjs.Ticker.addEventListener("tick", (function(evt) {
-          if (this.keysDown[Constant.KEYCODE_RIGHT]) {
-            c.run('right');
-            this.socket.emit("update", {
-              id: this.clientID,
-              x: c.x,
-              y: c.y,
-              dir: "right"
-            });
-            console.log("new Coord" + this.playerGet(this.clientID).x + "," + c.y);
-          }
-          if (this.keysDown[Constant.KEYCODE_LEFT]) {
-            c.run('left');
-            this.socket.emit("update", {
-              id: this.clientID,
-              x: c.x,
-              y: c.y,
-              dir: "left"
-            });
-          }
-          if (this.keysDown[Constant.KEYCODE_DOWN]) {
-            this.socket.emit("update", {
-              id: this.clientID,
-              x: c.x,
-              y: c.y,
-              dir: "down"
-            });
-            c.run('down');
-          }
-          if (this.keysDown[Constant.KEYCODE_UP]) {
-            this.socket.emit("update", {
-              id: this.clientID,
-              x: c.x,
-              y: c.y,
-              dir: "up"
-            });
-            c.run('up');
-            console.log("new Coord" + this.playerGet(this.clientID).x + "," + c.y);
-          }
-          if (this.keysDown[Constant.KEYCODE_Z]) {
-            c.attack();
-            if (collide(this.enemy.getRect(), c.getRect())) {
-              this.enemy.gotHit();
-              return this.enemy.setState("hurt");
-            }
-          }
-        }).bind(this));
+        this.localPlayer = c;
+        createjs.Ticker.addEventListener("tick", (function(evt) {}).bind(this));
         window.addEventListener("keydown", (function(e) {
           return this.keysDown[e.keyCode] = true;
         }).bind(this));
@@ -142,12 +96,80 @@
             if (c.character.currentAnimation === "run") {
               c.idle();
             }
-            return c.setState('idle');
+            c.setState('idle');
+            return this.socket.emit("update", {
+              id: this.clientID,
+              x: this.localPlayer.x,
+              y: this.localPlayer.y,
+              state: "idle"
+            });
           }
         }).bind(this));
       } else {
 
       }
+    };
+
+    Game.prototype.onDisconnect = function(data) {
+      return console.log('Player: ' + data.id + ' has disconnected');
+    };
+
+    Game.prototype.onTick = function(e) {
+      if (this.keysDown[Constant.KEYCODE_RIGHT]) {
+        this.localPlayer.run('right');
+        this.socket.emit("update", {
+          id: this.clientID,
+          x: this.localPlayer.x,
+          y: this.localPlayer.y,
+          dir: "right"
+        });
+        console.log("new Coord" + this.playerGet(this.clientID).x + "," + this.localPlayer.y);
+      }
+      if (this.keysDown[Constant.KEYCODE_LEFT]) {
+        this.localPlayer.run('left');
+        this.socket.emit("update", {
+          id: this.clientID,
+          x: this.localPlayer.x,
+          y: this.localPlayer.y,
+          dir: "left"
+        });
+      }
+      if (this.keysDown[Constant.KEYCODE_DOWN]) {
+        this.socket.emit("update", {
+          id: this.clientID,
+          x: this.localPlayer.x,
+          y: this.localPlayer.y,
+          dir: "down"
+        });
+        this.localPlayer.run('down');
+      }
+      if (this.keysDown[Constant.KEYCODE_UP]) {
+        this.socket.emit("update", {
+          id: this.clientID,
+          x: this.localPlayer.x,
+          y: this.localPlayer.y,
+          dir: "up"
+        });
+        this.localPlayer.run('up');
+        console.log("new Coord" + this.playerGet(this.clientID).x + "," + this.localPlayer.y);
+      }
+      if (this.keysDown[Constant.KEYCODE_Z]) {
+        this.localPlayer.attack();
+        if (collide(this.enemy.getRect(), this.localPlayer.getRect())) {
+          this.enemy.gotHit();
+          return this.enemy.setState("hurt");
+        }
+      }
+    };
+
+    Game.prototype.onKeyDown = function(e) {
+      console.log("key down " + e.keyCode);
+      return this.keysDown[e.keyCode] = true;
+    };
+
+    Game.prototype.onKeyUp = function(e) {
+      console.log("key up " + e.keyCode);
+      return this.keysDown[e.keyCode] = false;
     };
 
     Game.prototype.playerExists = function(id) {
