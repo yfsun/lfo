@@ -91,7 +91,9 @@
         case "up":
           this.character.y -= this.speed;
       }
-      return this.character.localToGlobal(this.x, this.y);
+      this.character.localToGlobal(this.x, this.y);
+      this.x = this.character.x;
+      return this.y = this.character.y;
     };
 
     Character.prototype.attack = function() {

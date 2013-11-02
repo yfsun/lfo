@@ -22,7 +22,7 @@ class window.Game
 
     # Server setup
     serverInit: () ->
-        @socket = io.connect "http://10.0.0.9", {port: 8000, transports: ["websocket"]}
+        @socket = io.connect "http://localhost", {port: 8000, transports: ["websocket"]}
         console.log @socket
 
 
@@ -43,10 +43,6 @@ class window.Game
         @socket.on "client id", @onReceivedClientID.bind this
         @socket.on "update", @onUpdate.bind this
         @socket.on "disconnect", @onDisconnect.bind this
-
-        window.addEventListener "keydown",@onKeyDown.bind this
-        window.addEventListener "keyup",@onKeyUp.bind this
-
         createjs.Ticker.addEventListener "tick", @onTick.bind this
 
 
@@ -64,7 +60,7 @@ class window.Game
                 updatePlayer.idle()
                 console.log 'IDLEEEEEEEE'
 
-# Connected to Server
+    # Connected to Server
     onConnected: () ->
 
     # Received client ID from the server
@@ -115,7 +111,7 @@ class window.Game
         if (@keysDown[Constant.KEYCODE_RIGHT])
             @localPlayer.run 'right'
             @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"right"}
-            console.log "new Coord" + @playerGet(@clientID).x + "," + @localPlayer.y
+
         if (@keysDown[Constant.KEYCODE_LEFT])
             @localPlayer.run 'left'
             @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"left"}
@@ -125,16 +121,12 @@ class window.Game
             @localPlayer.run 'down'
 
         if (@keysDown[Constant.KEYCODE_UP])
-
             @socket.emit "update", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y, dir:"up"}
             @localPlayer.run 'up'
-            console.log "new Coord" + @playerGet(@clientID).x + "," + @localPlayer.y
 
         if (@keysDown[Constant.KEYCODE_Z])
             @localPlayer.attack()
-            if (collide @enemy.getRect(), @localPlayer.getRect())
-                @enemy.gotHit()
-                @enemy.setState "hurt"
+            @socket.emit "attack", {id:@clientID, x:@localPlayer.x, y:@localPlayer.y}
 
 
     onKeyDown: (e) ->
@@ -147,8 +139,6 @@ class window.Game
 
 
     # Member Functions #############################################################################
-
-
     playerExists: (id) ->
         for p in @players
             if (p.id == id)

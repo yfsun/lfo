@@ -76,7 +76,8 @@ class window.Character
             when "up"
                 @character.y -= @speed
         @character.localToGlobal @x, @y
-
+        @x = @character.x
+        @y = @character.y
     attack: ->
         if @character.currentAnimation == "idle"
             @character.gotoAndPlay "attack"

@@ -20,7 +20,7 @@
     };
 
     Game.prototype.serverInit = function() {
-      this.socket = io.connect("http://10.0.0.9", {
+      this.socket = io.connect("http://localhost", {
         port: 8000,
         transports: ["websocket"]
       });
@@ -41,8 +41,6 @@
       this.socket.on("client id", this.onReceivedClientID.bind(this));
       this.socket.on("update", this.onUpdate.bind(this));
       this.socket.on("disconnect", this.onDisconnect.bind(this));
-      window.addEventListener("keydown", this.onKeyDown.bind(this));
-      window.addEventListener("keyup", this.onKeyUp.bind(this));
       return createjs.Ticker.addEventListener("tick", this.onTick.bind(this));
     };
 
@@ -123,7 +121,6 @@
           y: this.localPlayer.y,
           dir: "right"
         });
-        console.log("new Coord" + this.playerGet(this.clientID).x + "," + this.localPlayer.y);
       }
       if (this.keysDown[Constant.KEYCODE_LEFT]) {
         this.localPlayer.run('left');
@@ -151,14 +148,14 @@
           dir: "up"
         });
         this.localPlayer.run('up');
-        console.log("new Coord" + this.playerGet(this.clientID).x + "," + this.localPlayer.y);
       }
       if (this.keysDown[Constant.KEYCODE_Z]) {
         this.localPlayer.attack();
-        if (collide(this.enemy.getRect(), this.localPlayer.getRect())) {
-          this.enemy.gotHit();
-          return this.enemy.setState("hurt");
-        }
+        return this.socket.emit("attack", {
+          id: this.clientID,
+          x: this.localPlayer.x,
+          y: this.localPlayer.y
+        });
       }
     };
 

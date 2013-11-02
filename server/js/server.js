@@ -7,7 +7,7 @@
     function Server() {
       this.util = require("util");
       this.io = require("socket.io");
-      this.Character = require("./character.js").Character;
+      this.Character = require("../js/character.js").Character;
       this.players = [];
       this.init();
     }
@@ -49,6 +49,7 @@
       client.on("new player", this.onNewPlayer.bind(this));
       client.on("disconnect", this.onSocketDisconnect.bind(this));
       client.on("update", this.onSocketUpdate.bind(this));
+      client.on("attack", this.onPlayerAttack.bind(this));
       _ref = this.players;
       _results = [];
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -59,6 +60,22 @@
           y: player.y
         });
         _results.push(this.util.log('emitting existing player:' + player.id));
+      }
+      return _results;
+    };
+
+    Server.prototype.onPlayerAttack = function(data) {
+      var player, _i, _len, _ref, _results;
+      this.util.log('attacking ' + data.id + 'at position: ' + data.x + ',' + data.y);
+      _ref = this.players;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        player = _ref[_i];
+        if (player.id !== data.id) {
+          _results.push(this.util.log('got hit'));
+        } else {
+          _results.push(void 0);
+        }
       }
       return _results;
     };
@@ -74,7 +91,8 @@
       this.players.push({
         id: data.id,
         x: data.x,
-        y: data.y
+        y: data.y,
+        hp: 100
       });
       return this.socket.sockets.emit("new player", {
         id: data.id,

@@ -2,7 +2,7 @@ class Server
     constructor: ()->
         @util =  require ("util")
         @io = require("socket.io")
-        @Character = require("./character.js").Character
+        @Character = require("../js/character.js").Character
 
         @players = []
         @init()
@@ -32,13 +32,21 @@ class Server
 
         # Send the client its ID
         client.on "new player", @onNewPlayer.bind this
-
         client.on "disconnect", @onSocketDisconnect.bind this
         client.on "update", @onSocketUpdate.bind this
+        client.on "attack", @onPlayerAttack.bind this
+
         # Send the existing players to the client
         for player in @players
                 client.emit "new player", {id: player.id, x:player.x, y:player.y}
                 @util.log 'emitting existing player:' + player.id
+
+    onPlayerAttack: (data) ->
+        @util.log 'attacking ' + data.id + 'at position: ' + data.x + ',' + data.y
+        # A dumb collision detection
+        for player in @players
+            if  player.id != data.id
+                @util.log 'got hit'
 
     onSocketDisconnect: (client)->
         @util.log 'client ' + @id + ' has disconnected'
@@ -48,14 +56,12 @@ class Server
     onNewPlayer: (data) ->
         @util.log 'New Player:' +  data.id + '--- Location:' + data.x + ',' + data.y
         # Create new player instance
-
-        @players.push {id:data.id, x:data.x, y:data.y}
+        @players.push {id:data.id, x:data.x, y:data.y, hp:100}
         @socket.sockets.emit "new player", {id: data.id, x:data.x, y:data.y}
 
     onSocketUpdate: (data) ->
         @util.log "update: id:" + data.id + " x:" + data.x + " y:" + data.y
         # Broadcast all updates
         @socket.sockets.emit "update", {id:data.id, x:data.x, y:data.y, dir:data.dir, state:data.state}
-
 
 gameServer = new Server
